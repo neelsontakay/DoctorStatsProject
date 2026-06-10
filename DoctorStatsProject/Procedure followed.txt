@@ -1,0 +1,4 @@
+8/6/2026:
+Based on the Requirements Document, a Development Plan was made using Claude AI
+This development plan was given to Cursor, based on which an ERD was created
+A summary was created by cursor of which technology is going to be used
