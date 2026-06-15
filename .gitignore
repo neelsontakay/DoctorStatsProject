@@ -1,0 +1,42 @@
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Environment files ---
+.env
+.env.*.local
+!.env.example
+
+# --- Laravel (webapp/) ---
+webapp/vendor/
+webapp/node_modules/
+webapp/public/build/
+webapp/public/hot
+webapp/public/storage
+webapp/storage/*.key
+webapp/storage/pail
+webapp/.phpunit.cache/
+webapp/.phpunit.result.cache
+webapp/auth.json
+webapp/.env
+webapp/.env.backup
+webapp/.env.production
+
+# --- Python (stats-service/) ---
+stats-service/.venv/
+stats-service/__pycache__/
+stats-service/**/__pycache__/
+stats-service/.pytest_cache/
+stats-service/.ruff_cache/
+stats-service/*.egg-info/
+stats-service/dist/
+stats-service/build/
+
+# --- Docker ---
+docker/volumes/
+
+# --- Tooling ---
+composer.phar

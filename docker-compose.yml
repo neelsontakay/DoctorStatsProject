@@ -1,0 +1,140 @@
+name: doctorstats
+
+services:
+  webapp:
+    build:
+      context: ./docker/webapp
+    volumes:
+      - ./webapp:/var/www/html
+    ports:
+      - "8000:8000"
+    environment:
+      APP_URL: http://webapp:8000
+      DB_HOST: mysql
+      REDIS_HOST: redis
+      MAIL_HOST: mailpit
+      AWS_ENDPOINT: http://minio:9000
+      STATS_SERVICE_URL: http://stats-service:8001
+      STATS_SERVICE_TOKEN: local-dev-token
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - doctorstats
+
+  queue-worker:
+    build:
+      context: ./docker/webapp
+    command: php artisan queue:work --tries=3 --timeout=900
+    volumes:
+      - ./webapp:/var/www/html
+    environment:
+      APP_URL: http://webapp:8000
+      DB_HOST: mysql
+      REDIS_HOST: redis
+      AWS_ENDPOINT: http://minio:9000
+      STATS_SERVICE_URL: http://stats-service:8001
+      STATS_SERVICE_TOKEN: local-dev-token
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - doctorstats
+
+  stats-service:
+    build:
+      context: ./stats-service
+    ports:
+      - "8001:8001"
+    environment:
+      STATS_DEBUG: "true"
+      STATS_SERVICE_TOKEN: local-dev-token
+    networks:
+      - doctorstats
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: doctorstats
+      MYSQL_USER: doctorstats
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret-root
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-psecret-root"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - doctorstats
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - doctorstats
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    environment:
+      MINIO_ROOT_USER: doctorstats
+      MINIO_ROOT_PASSWORD: secret-minio
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - doctorstats
+
+  # One-shot job: creates the local S3 bucket, then exits
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 doctorstats secret-minio &&
+      mc mb --ignore-existing local/doctorstats-local
+      "
+    networks:
+      - doctorstats
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    networks:
+      - doctorstats
+
+networks:
+  doctorstats:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:

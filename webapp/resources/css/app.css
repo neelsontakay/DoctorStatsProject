@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-background text-foreground antialiased;
+    }
+    h1 { @apply text-4xl font-bold leading-tight tracking-tight; }
+    h2 { @apply text-3xl font-bold leading-tight; }
+    h3 { @apply text-2xl font-semibold leading-snug; }
+}
+
+@layer components {
+    .skip-link {
+        @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground;
+    }
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50;
+    }
+    .btn-primary { @apply bg-primary text-primary-foreground hover:bg-primary/90; }
+    .btn-outline { @apply border-border bg-background hover:bg-muted; }
+    .btn-ghost { @apply hover:bg-muted; }
+    .btn-secondary { @apply bg-secondary text-secondary-foreground hover:bg-secondary/90; }
+    .btn-destructive { @apply bg-destructive/10 text-destructive hover:bg-destructive/20; }
+    .btn-sm { @apply h-8 px-3 text-xs; }
+    .btn-lg { @apply h-11 px-6 text-base min-h-[44px]; }
+    .btn-icon { @apply size-9 p-0; }
+    .card { @apply rounded-xl border border-border bg-card shadow-sm; }
+    .card-pad { @apply p-6; }
+    .input {
+        @apply w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20;
+    }
+    .label { @apply mb-1.5 block text-sm font-medium text-foreground; }
+    .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase; }
+    .badge-completed { @apply bg-accent-100 text-accent-800; }
+    .badge-processing { @apply bg-secondary-100 text-secondary-700; }
+    .badge-pending { @apply bg-muted text-muted-foreground; }
+    .badge-failed { @apply bg-red-100 text-red-800; }
+    .alert-error { @apply rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800; }
+    .alert-info { @apply rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900; }
+    .nav-link { @apply px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors; }
+    .nav-link-active { @apply text-primary border-b-2 border-primary rounded-none; }
+}
+
+@keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+.animate-indeterminate {
+    animation: indeterminate 1.5s ease-in-out infinite;
+}
