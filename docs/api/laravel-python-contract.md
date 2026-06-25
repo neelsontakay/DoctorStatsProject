@@ -166,6 +166,50 @@ Response `200` (draft):
 
 Callback body mirrors the status fields plus optional `data_profile` and `tests[]` on completion.
 
+---
+
+### `POST /api/v1/profile`
+
+Compute upload-time descriptive and frequency statistics for an entire dataset. **Implemented.**
+
+Request body:
+
+```json
+{
+  "data_file_id": 1,
+  "file_url": "string — pre-signed S3 URL or Laravel internal download URL",
+  "file_format": "xlsx | xls | csv",
+  "sheet_name": "string | null"
+}
+```
+
+Response `200`:
+
+```json
+{
+  "row_count": 100,
+  "columns": [
+    {
+      "name": "age",
+      "inferred_type": "numerical | categorical | identifier",
+      "descriptive_statistics": {
+        "count": 100,
+        "mean": 52.4,
+        "median": 51.0,
+        "mode": 45.0,
+        "std": 8.2,
+        "min": 30.0,
+        "max": 72.0,
+        "q1": 47.0,
+        "q3": 58.0,
+        "iqr": 11.0
+      },
+      "frequency_table": []
+    }
+  ]
+}
+```
+
 ### Resolved decisions
 
 1. **Authentication**: `X-Service-Token` on both directions when configured.

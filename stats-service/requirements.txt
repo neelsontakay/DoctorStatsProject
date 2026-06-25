@@ -10,3 +10,4 @@ seaborn==0.13.2
 scikit-learn==1.9.0
 openpyxl==3.1.5
 httpx==0.28.1
+biopython==1.85

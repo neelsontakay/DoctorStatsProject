@@ -21,6 +21,37 @@ def _csv_bytes() -> bytes:
     return buffer.getvalue().encode("utf-8")
 
 
+def test_profile_endpoint_returns_descriptive_statistics(monkeypatch) -> None:
+    def fake_profile(file_url: str, file_format: str, sheet_name: str | None):
+        return {
+            "row_count": 4,
+            "columns": [
+                {
+                    "name": "age",
+                    "inferred_type": "numerical",
+                    "descriptive_statistics": {"mean": 51.5, "median": 50.5, "mode": 45.0},
+                    "frequency_table": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr("app.api.v1.profile.upload_profiler.profile", fake_profile)
+
+    response = client.post(
+        "/api/v1/profile",
+        json={
+            "data_file_id": 1,
+            "file_url": "http://example.test/data.csv",
+            "file_format": "csv",
+            "sheet_name": None,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["row_count"] == 4
+    assert response.json()["columns"][0]["descriptive_statistics"]["mode"] == 45.0
+
+
 def test_analyze_accepts_request_and_returns_status(monkeypatch) -> None:
     def fake_load(file_url: str, file_format: str, sheet_name: str | None):
         return pd.read_csv(io.BytesIO(_csv_bytes()))
@@ -64,3 +95,9 @@ def test_analyze_accepts_request_and_returns_status(monkeypatch) -> None:
     status_response = client.get("/api/v1/analysis/DS-2026-TESTJOB1/status")
     assert status_response.status_code == 200
     assert status_response.json()["status"] in {"completed", "processing", "pending"}
+
+    results_response = client.get("/api/v1/analysis/DS-2026-TESTJOB1/results")
+    if results_response.status_code == 200:
+        tests = results_response.json()["tests"]
+        hypothesis_tests = [test for test in tests if test.get("test_category") == "hypothesis"]
+        assert hypothesis_tests

@@ -48,6 +48,15 @@ class GraphGeneratorService:
         series = pd.to_numeric(frame[column.name], errors="coerce").dropna()
         figure, axis = plt.subplots(figsize=(8, 5))
         axis.hist(series, bins=min(20, max(5, series.nunique())), color="#2563eb", edgecolor="white")
+        mean = float(series.mean())
+        median = float(series.median())
+        mode_result = series.mode()
+        mode = float(mode_result.iloc[0]) if not mode_result.empty else None
+        axis.axvline(mean, color="#dc2626", linestyle="--", linewidth=1.5, label=f"Mean: {mean:.2f}")
+        axis.axvline(median, color="#16a34a", linestyle=":", linewidth=1.5, label=f"Median: {median:.2f}")
+        if mode is not None:
+            axis.axvline(mode, color="#9333ea", linestyle="-.", linewidth=1.5, label=f"Mode: {mode:.2f}")
+        axis.legend(fontsize=8)
         axis.set_title(f"Distribution of {column.name}")
         axis.set_xlabel(column.name)
         axis.set_ylabel("Frequency")

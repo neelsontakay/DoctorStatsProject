@@ -48,9 +48,23 @@ class AnalysisCallbackTest extends TestCase
                 [
                     'test_name' => 'Independent t-test: age by group',
                     'test_category' => 'hypothesis',
-                    'parameters' => ['dependent' => 'age'],
+                    'parameters' => [
+                        'dependent' => 'age',
+                        'library' => 'scipy',
+                    ],
                     'test_statistic' => 2.5,
                     'p_value' => 0.04,
+                    'raw_output' => [],
+                ],
+                [
+                    'test_name' => 'Chi-square goodness-of-fit: group',
+                    'test_category' => 'hypothesis',
+                    'parameters' => [
+                        'column' => 'group',
+                        'library' => 'biopython',
+                    ],
+                    'test_statistic' => 1.2,
+                    'p_value' => 0.27,
                     'raw_output' => [],
                 ],
                 [
@@ -69,7 +83,11 @@ class AnalysisCallbackTest extends TestCase
         $job->refresh();
         $this->assertSame(AnalysisJobStatus::Completed, $job->status);
         $this->assertNotNull($job->completed_at);
-        $this->assertDatabaseCount('analysis_results', 2);
+        $this->assertDatabaseCount('analysis_results', 3);
+        $this->assertDatabaseHas('analysis_results', [
+            'analysis_job_id' => $job->id,
+            'test_name' => 'Chi-square goodness-of-fit: group',
+        ]);
     }
 
     public function test_callback_rejects_invalid_service_token_when_configured(): void

@@ -98,6 +98,27 @@ export async function waitForDataFileReady(dataFileId, maxAttempts = 30, interva
     throw new Error('File validation is taking too long. Ensure the queue worker is running.');
 }
 
+export async function waitForPreviewStats(dataFileId, maxAttempts = 30, intervalMs = 1000) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await fetchDataFile(dataFileId);
+        const file = response.data.data ?? response.data;
+        const status = file.virus_scan_status;
+
+        if (status === 'rejected') {
+            throw new Error('The uploaded file failed validation.');
+        }
+
+        if (status === 'clean' && file.preview_stats) {
+            return file;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    const response = await fetchDataFile(dataFileId);
+    return response.data.data ?? response.data;
+}
+
 export async function fetchDataFilePreview(dataFileId, sheetName = null) {
     const params = sheetName ? { sheet_name: sheetName } : {};
 
@@ -116,6 +137,10 @@ export async function fetchAnalysisJobs(status = null) {
 
 export async function fetchAnalysisJob(jobId) {
     return api.get(`/api/v1/analysis-jobs/${jobId}`);
+}
+
+export async function fetchAnalysisResults(jobId) {
+    return api.get(`/api/v1/analysis-jobs/${jobId}/results`);
 }
 
 export async function fetchAnalysisStatus(jobId) {

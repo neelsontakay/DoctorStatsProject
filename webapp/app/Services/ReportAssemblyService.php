@@ -29,10 +29,19 @@ class ReportAssemblyService
             ->where('test_category', '!=', 'profile')
             ->values();
 
+        $frequencyTests = $tests->where('test_category', 'frequency')->values();
+        $hypothesisTests = $tests->where('test_category', 'hypothesis')->values();
+        $otherTests = $tests
+            ->whereNotIn('test_category', ['frequency', 'hypothesis'])
+            ->values();
+
         return View::make('reports.analysis-report', [
             'job' => $job,
             'profile' => $profile,
             'tests' => $tests,
+            'frequencyTests' => $frequencyTests,
+            'hypothesisTests' => $hypothesisTests,
+            'otherTests' => $otherTests,
             'graphs' => $graphs,
             'ai' => $aiContent,
             'generatedAt' => now(),

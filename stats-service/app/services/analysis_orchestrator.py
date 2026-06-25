@@ -25,7 +25,7 @@ class AnalysisOrchestrator:
                 request,
                 status="processing",
                 progress_percent=35,
-                current_step="Profiling dataset",
+                current_step="Running frequency analysis",
             )
             data_profile = profiler.profile(working_frame, request.columns)
 
@@ -33,7 +33,7 @@ class AnalysisOrchestrator:
                 request,
                 status="processing",
                 progress_percent=65,
-                current_step="Running statistical tests",
+                current_step="Running Biopython hypothesis tests",
             )
             tests = test_engine.run(working_frame, request.columns)
             test_payloads = [test.model_dump() for test in tests]

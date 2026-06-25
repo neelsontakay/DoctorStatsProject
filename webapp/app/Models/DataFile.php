@@ -24,6 +24,8 @@ class DataFile extends Model
         'file_size_bytes',
         'sheet_name',
         'virus_scan_status',
+        'preview_stats',
+        'preview_stats_computed_at',
     ];
 
     protected function casts(): array
@@ -32,6 +34,8 @@ class DataFile extends Model
             'format' => DataFileFormat::class,
             'virus_scan_status' => VirusScanStatus::class,
             'file_size_bytes' => 'integer',
+            'preview_stats' => 'array',
+            'preview_stats_computed_at' => 'datetime',
         ];
     }
 

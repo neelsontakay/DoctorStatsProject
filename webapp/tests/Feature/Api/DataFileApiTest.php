@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -25,6 +26,25 @@ class DataFileApiTest extends TestCase
 
     public function test_user_can_upload_csv_file_and_preview_rows(): void
     {
+        Http::fake([
+            '*/api/v1/profile' => Http::response([
+                'row_count' => 2,
+                'columns' => [
+                    [
+                        'name' => 'age',
+                        'inferred_type' => 'numerical',
+                        'descriptive_statistics' => [
+                            'count' => 2,
+                            'mean' => 48.5,
+                            'median' => 48.5,
+                            'mode' => 45.0,
+                        ],
+                        'frequency_table' => [],
+                    ],
+                ],
+            ], 200),
+        ]);
+
         $user = User::factory()->create();
 
         $csv = UploadedFile::fake()->createWithContent(
@@ -42,12 +62,23 @@ class DataFileApiTest extends TestCase
         $dataFile = DataFile::query()->firstOrFail();
         $this->assertTrue(Storage::disk('local')->exists($dataFile->s3_path));
 
+        $dataFile->refresh();
+        $this->assertNotNull($dataFile->preview_stats);
+        $this->assertNotNull($dataFile->preview_stats_computed_at);
+        $this->assertSame(2, $dataFile->preview_stats['row_count']);
+
         $previewResponse = $this->actingAs($user)
             ->getJson("/api/v1/data-files/{$dataFile->id}/preview");
 
         $previewResponse->assertOk()
             ->assertJsonPath('data.headers', ['patient_id', 'age', 'group'])
             ->assertJsonCount(2, 'data.rows');
+
+        $showResponse = $this->actingAs($user)
+            ->getJson("/api/v1/data-files/{$dataFile->id}");
+
+        $showResponse->assertOk()
+            ->assertJsonPath('data.preview_stats.row_count', 2);
     }
 
     public function test_user_cannot_preview_another_users_file(): void

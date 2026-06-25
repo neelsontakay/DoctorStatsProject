@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AnalysisJob;
+use App\Models\DataFile;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -85,18 +86,50 @@ class StatsServiceClient
         return $response->json('graphs', []);
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function profileDataset(DataFile $dataFile): ?array
+    {
+        $payload = [
+            'data_file_id' => $dataFile->id,
+            'file_url' => $this->dataFileDownloadUrl($dataFile),
+            'file_format' => $dataFile->format->value,
+            'sheet_name' => $dataFile->sheet_name,
+        ];
+
+        $response = $this->client()->post('/api/v1/profile', $payload);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::warning('Stats service profile request failed.', [
+            'data_file_id' => $dataFile->id,
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+
+        return null;
+    }
+
     private function fileDownloadUrl(AnalysisJob $job): string
+    {
+        return $this->dataFileDownloadUrl($job->dataFile);
+    }
+
+    private function dataFileDownloadUrl(DataFile $dataFile): string
     {
         $diskName = (string) config('filesystems.default');
         $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
 
         if ($diskName === 's3') {
-            return $disk->temporaryUrl($job->dataFile->s3_path, now()->addHour());
+            return $disk->temporaryUrl($dataFile->s3_path, now()->addHour());
         }
 
         return rtrim((string) config('app.url'), '/')
             .'/internal/v1/data-files/'
-            .$job->data_file_id
+            .$dataFile->id
             .'/download';
     }
 

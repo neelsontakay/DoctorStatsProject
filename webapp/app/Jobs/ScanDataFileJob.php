@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\VirusScanStatus;
+use App\Jobs\ProfileDataFileJob;
 use App\Models\DataFile;
 use App\Services\SpreadsheetReaderService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,6 +27,8 @@ class ScanDataFileJob implements ShouldQueue
             $this->dataFile->update([
                 'virus_scan_status' => VirusScanStatus::Clean,
             ]);
+
+            ProfileDataFileJob::dispatch($this->dataFile);
         } catch (Throwable $exception) {
             Log::warning('Data file validation failed.', [
                 'data_file_id' => $this->dataFile->id,

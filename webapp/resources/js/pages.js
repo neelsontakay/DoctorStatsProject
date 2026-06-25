@@ -203,6 +203,7 @@ export function registerPages(Alpine) {
         polling: false,
         error: '',
         job: null,
+        results: [],
         reportId: null,
         pollTimer: null,
         async init() {
@@ -218,12 +219,20 @@ export function registerPages(Alpine) {
                 const response = await DoctorStats.fetchAnalysisJob(this.jobId);
                 this.job = response.data.data ?? response.data;
                 if (this.job.status === 'completed') {
-                    await this.findReport();
+                    await Promise.all([this.findReport(), this.loadResults()]);
                 }
             } catch {
                 this.error = 'Unable to load analysis job.';
             } finally {
                 this.loading = false;
+            }
+        },
+        async loadResults() {
+            try {
+                const response = await DoctorStats.fetchAnalysisResults(this.jobId);
+                this.results = response.data.data?.results ?? [];
+            } catch {
+                this.results = [];
             }
         },
         async findReport() {
@@ -245,7 +254,7 @@ export function registerPages(Alpine) {
                     this.job = { ...this.job, status: status, progress: response.data.data.progress };
                     if (status === 'completed') {
                         this.polling = false;
-                        await this.findReport();
+                        await Promise.all([this.findReport(), this.loadResults()]);
                         return;
                     }
                     if (status === 'failed') {
@@ -261,6 +270,19 @@ export function registerPages(Alpine) {
             poll();
         },
         statusClass: DoctorStats.statusBadgeClass,
+        frequencyResults() {
+            return this.results.filter((result) => result.test_category === 'frequency');
+        },
+        hypothesisResults() {
+            return this.results.filter((result) => result.test_category === 'hypothesis');
+        },
+        formatPValue(value) {
+            if (value === null || value === undefined) return '—';
+            return Number(value) < 0.001 ? '< 0.001' : String(value);
+        },
+        libraryLabel(parameters) {
+            return parameters?.library ?? 'unknown';
+        },
     }));
 
     Alpine.data('analysisWorkflowPage', () => ({
@@ -270,6 +292,8 @@ export function registerPages(Alpine) {
         file: null,
         fileName: '',
         dataFileId: null,
+        previewStats: null,
+        statsLoading: false,
         objectives: '',
         columns: [],
         selectedSheet: '',
@@ -342,6 +366,7 @@ export function registerPages(Alpine) {
                 this.uploadProgress = 100;
                 this.uploadState = 'scanning';
                 await this.loadPreview();
+                await this.loadPreviewStats();
             } catch (error) {
                 this.uploadState = 'error';
                 this.error = DoctorStats.flattenErrors(error);
@@ -373,6 +398,21 @@ export function registerPages(Alpine) {
                 this.error = DoctorStats.flattenErrors(error);
             }
         },
+        async loadPreviewStats() {
+            if (!this.dataFileId) return;
+
+            this.statsLoading = true;
+            this.previewStats = null;
+
+            try {
+                const file = await DoctorStats.waitForPreviewStats(this.dataFileId);
+                this.previewStats = file.preview_stats ?? null;
+            } catch {
+                this.previewStats = null;
+            } finally {
+                this.statsLoading = false;
+            }
+        },
         guessDataType(header, rows, index) {
             const sample = (rows ?? []).slice(0, 5).map((row) => row[index]).filter((v) => v !== null && v !== '');
             if (sample.length === 0) return 'text';
@@ -382,6 +422,7 @@ export function registerPages(Alpine) {
         async changeSheet() {
             if (!this.dataFileId || !this.selectedSheet) return;
             await this.loadPreview();
+            await this.loadPreviewStats();
         },
         updateColumn(index, field, value) {
             this.columns = this.columns.map((col, i) => (i === index ? { ...col, [field]: value } : col));

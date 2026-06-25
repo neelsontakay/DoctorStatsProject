@@ -8,6 +8,11 @@ from scipy import stats
 import statsmodels.api as sm
 
 from app.schemas.analysis import ColumnSpec, TestResult
+from app.services.biopython_hypothesis import (
+    chi_square_goodness_of_fit,
+    chi_square_independence,
+    fisher_exact_test,
+)
 
 
 class TestEngine:
@@ -22,39 +27,48 @@ class TestEngine:
 
         for spec in categorical:
             series = frame[spec.name].astype(str)
-            frequencies = series.value_counts(dropna=False).to_dict()
+            frequency_table = self._build_frequency_table(series)
             results.append(
                 TestResult(
                     test_name=f"Frequency table: {spec.name}",
                     test_category="frequency",
                     parameters={"column": spec.name},
-                    raw_output={
-                        "frequencies": {str(key): int(value) for key, value in frequencies.items()}
-                    },
+                    raw_output={"frequency_table": frequency_table},
                 )
             )
+
+            observed = series.dropna().value_counts().to_numpy(dtype=int)
+            goodness_of_fit = chi_square_goodness_of_fit(spec.name, observed)
+            if goodness_of_fit is not None:
+                results.append(goodness_of_fit)
 
         if len(categorical) >= 2:
             first, second = categorical[0], categorical[1]
             contingency = pd.crosstab(frame[first.name], frame[second.name])
-            if contingency.shape[0] >= 2 and contingency.shape[1] >= 2:
-                chi2, p_value, dof, _ = stats.chi2_contingency(contingency)
-                results.append(
-                    TestResult(
-                        test_name=f"Chi-square: {first.name} vs {second.name}",
-                        test_category="hypothesis",
-                        parameters={
-                            "row_variable": first.name,
-                            "column_variable": second.name,
-                            "degrees_of_freedom": int(dof),
-                        },
-                        test_statistic=round(float(chi2), 6),
-                        p_value=round(float(p_value), 10),
-                        raw_output={
-                            "contingency_table": contingency.astype(int).to_dict(),
-                        },
-                    )
+            results.append(
+                TestResult(
+                    test_name=f"Cross-tabulation: {first.name} vs {second.name}",
+                    test_category="frequency",
+                    parameters={
+                        "row_variable": first.name,
+                        "column_variable": second.name,
+                    },
+                    raw_output={
+                        "contingency_table": contingency.astype(int).to_dict(),
+                    },
                 )
+            )
+
+            if contingency.shape[0] >= 2 and contingency.shape[1] >= 2:
+                _, _, _, expected = stats.chi2_contingency(contingency.to_numpy())
+                if contingency.shape == (2, 2) and float(expected.min()) < 5:
+                    fisher_result = fisher_exact_test(first.name, second.name, contingency)
+                    if fisher_result is not None:
+                        results.append(fisher_result)
+                else:
+                    independence = chi_square_independence(first.name, second.name, contingency)
+                    if independence is not None:
+                        results.append(independence)
 
         dependent = dependents[0] if dependents else (numerical[0] if numerical else None)
         independent_numeric = next((spec for spec in independents if spec.data_type == "numerical"), None)
@@ -81,6 +95,8 @@ class TestEngine:
                             "variable_x": first_num.name,
                             "variable_y": second_num.name,
                             "sample_size": int(len(paired)),
+                            "library": "scipy",
+                            "test": "pearsonr",
                         },
                         test_statistic=round(float(coefficient), 6),
                         p_value=round(float(p_value), 10),
@@ -94,6 +110,29 @@ class TestEngine:
                 results.append(result)
 
         return results
+
+    def _build_frequency_table(self, series: pd.Series, limit: int = 20) -> list[dict[str, Any]]:
+        clean = series.dropna().astype(str)
+        if clean.empty:
+            return []
+
+        counts = clean.value_counts()
+        total = int(len(clean))
+        cumulative = 0
+        rows: list[dict[str, Any]] = []
+
+        for value, count in counts.head(limit).items():
+            cumulative += int(count)
+            rows.append(
+                {
+                    "value": str(value),
+                    "count": int(count),
+                    "percent": round((int(count) / total) * 100, 2),
+                    "cumulative_percent": round((cumulative / total) * 100, 2),
+                }
+            )
+
+        return rows
 
     def _group_comparison(
         self,
@@ -112,29 +151,56 @@ class TestEngine:
             return []
 
         group_names = list(groups.keys())
-        first = np.array(groups[group_names[0]], dtype=float)
-        second = np.array(groups[group_names[1]], dtype=float)
 
-        t_stat, p_value = stats.ttest_ind(first, second, equal_var=False)
-        pooled_std = np.sqrt((np.var(first, ddof=1) + np.var(second, ddof=1)) / 2)
-        cohens_d = (np.mean(first) - np.mean(second)) / pooled_std if pooled_std else 0.0
+        if len(group_names) == 2:
+            first = np.array(groups[group_names[0]], dtype=float)
+            second = np.array(groups[group_names[1]], dtype=float)
+
+            t_stat, p_value = stats.ttest_ind(first, second, equal_var=False)
+            pooled_std = np.sqrt((np.var(first, ddof=1) + np.var(second, ddof=1)) / 2)
+            cohens_d = (np.mean(first) - np.mean(second)) / pooled_std if pooled_std else 0.0
+
+            return [
+                TestResult(
+                    test_name=f"Independent t-test: {dependent.name} by {independent.name}",
+                    test_category="hypothesis",
+                    parameters={
+                        "dependent": dependent.name,
+                        "independent": independent.name,
+                        "group_a": str(group_names[0]),
+                        "group_b": str(group_names[1]),
+                        "library": "scipy",
+                        "test": "ttest_ind",
+                    },
+                    test_statistic=round(float(t_stat), 6),
+                    p_value=round(float(p_value), 10),
+                    effect_sizes={"cohens_d": round(float(cohens_d), 6)},
+                    assumptions_validation={
+                        "min_group_size": min(len(first), len(second)),
+                        "groups_compared": 2,
+                    },
+                )
+            ]
+
+        samples = [np.array(values, dtype=float) for values in groups.values()]
+        f_stat, p_value = stats.f_oneway(*samples)
 
         return [
             TestResult(
-                test_name=f"Independent t-test: {dependent.name} by {independent.name}",
+                test_name=f"One-way ANOVA: {dependent.name} by {independent.name}",
                 test_category="hypothesis",
                 parameters={
                     "dependent": dependent.name,
                     "independent": independent.name,
-                    "group_a": str(group_names[0]),
-                    "group_b": str(group_names[1]),
+                    "groups": [str(name) for name in group_names],
+                    "library": "scipy",
+                    "test": "f_oneway",
                 },
-                test_statistic=round(float(t_stat), 6),
+                test_statistic=round(float(f_stat), 6),
                 p_value=round(float(p_value), 10),
-                effect_sizes={"cohens_d": round(float(cohens_d), 6)},
                 assumptions_validation={
-                    "min_group_size": min(len(first), len(second)),
-                    "groups_compared": 2,
+                    "group_count": len(group_names),
+                    "min_group_size": min(len(values) for values in groups.values()),
                 },
             )
         ]
@@ -163,6 +229,8 @@ class TestEngine:
                 "dependent": dependent.name,
                 "independent": independent.name,
                 "sample_size": int(len(data)),
+                "library": "statsmodels",
+                "test": "ols",
             },
             test_statistic=round(float(model.fvalue), 6) if model.fvalue is not None else None,
             p_value=round(float(model.f_pvalue), 10) if model.f_pvalue is not None else None,

@@ -75,6 +75,69 @@
                         </table>
                     </div>
                 </div>
+
+                <template x-if="job.status === 'completed' && results.length">
+                    <div class="space-y-6">
+                        <div class="card card-pad" x-show="frequencyResults().length">
+                            <h2 class="text-lg font-semibold text-foreground mb-4">Frequency analysis</h2>
+                            <template x-for="result in frequencyResults()" :key="result.id">
+                                <div class="mb-4 pb-4 border-b border-border last:border-0 last:pb-0 last:mb-0">
+                                    <h3 class="font-medium text-foreground" x-text="result.test_name"></h3>
+                                    <template x-if="result.raw_output?.frequency_table?.length">
+                                        <div class="overflow-x-auto mt-2">
+                                            <table class="w-full text-sm">
+                                                <thead>
+                                                    <tr class="border-b border-border text-left text-muted-foreground">
+                                                        <th class="py-1 pr-3">Value</th>
+                                                        <th class="py-1 pr-3">Count</th>
+                                                        <th class="py-1 pr-3">%</th>
+                                                        <th class="py-1">Cumulative %</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <template x-for="row in result.raw_output.frequency_table" :key="row.value">
+                                                        <tr class="border-b border-border">
+                                                            <td class="py-1 pr-3" x-text="row.value"></td>
+                                                            <td class="py-1 pr-3" x-text="row.count"></td>
+                                                            <td class="py-1 pr-3" x-text="row.percent"></td>
+                                                            <td class="py-1" x-text="row.cumulative_percent"></td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="card card-pad" x-show="hypothesisResults().length">
+                            <h2 class="text-lg font-semibold text-foreground mb-4">Hypothesis tests</h2>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-border text-left text-muted-foreground">
+                                            <th class="py-2 pr-4">Test</th>
+                                            <th class="py-2 pr-4">Statistic</th>
+                                            <th class="py-2 pr-4">P-value</th>
+                                            <th class="py-2">Library</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="result in hypothesisResults()" :key="result.id">
+                                            <tr class="border-b border-border">
+                                                <td class="py-2 pr-4" x-text="result.test_name"></td>
+                                                <td class="py-2 pr-4" x-text="result.test_statistic ?? '—'"></td>
+                                                <td class="py-2 pr-4" x-text="formatPValue(result.p_value)"></td>
+                                                <td class="py-2 capitalize" x-text="libraryLabel(result.parameters)"></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
     </div>

@@ -65,11 +65,13 @@
                     </template>
 
                     <template x-if="uploadState === 'ready'">
-                        <div class="border border-border rounded-lg p-6 bg-muted">
-                            <p class="font-semibold text-foreground" x-text="fileName"></p>
-                            <p class="text-sm text-accent mt-1">File ready for analysis</p>
+                        <div class="border border-border rounded-lg p-6 bg-muted space-y-4">
+                            <div>
+                                <p class="font-semibold text-foreground" x-text="fileName"></p>
+                                <p class="text-sm text-accent mt-1">File ready for analysis</p>
+                            </div>
                             <template x-if="sheets.length > 1">
-                                <div class="mt-4">
+                                <div>
                                     <label class="label">Sheet</label>
                                     <select x-model="selectedSheet" @change="changeSheet" class="input max-w-xs">
                                         <template x-for="sheet in sheets" :key="sheet">
@@ -77,6 +79,54 @@
                                         </template>
                                     </select>
                                 </div>
+                            </template>
+                            <template x-if="statsLoading">
+                                <p class="text-sm text-muted-foreground">Computing dataset summary...</p>
+                            </template>
+                            <template x-if="!statsLoading && previewStats">
+                                <details class="border border-border rounded-lg bg-card p-4" open>
+                                    <summary class="cursor-pointer font-semibold text-foreground">Dataset summary</summary>
+                                    <p class="text-sm text-muted-foreground mt-2" x-text="`${previewStats.row_count ?? 0} rows analyzed`"></p>
+                                    <template x-for="column in previewStats.columns ?? []" :key="column.name">
+                                        <div class="mt-4">
+                                            <h4 class="text-sm font-semibold text-foreground" x-text="`${column.name} (${column.inferred_type})`"></h4>
+                                            <template x-if="column.inferred_type === 'numerical'">
+                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 text-sm">
+                                                    <template x-for="(value, key) in column.descriptive_statistics ?? {}" :key="key">
+                                                        <div class="rounded border border-border px-2 py-1">
+                                                            <span class="text-muted-foreground capitalize" x-text="key.replaceAll('_', ' ')"></span>:
+                                                            <span class="font-medium" x-text="value ?? '—'"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="column.inferred_type === 'categorical' && (column.frequency_table?.length ?? 0) > 0">
+                                                <div class="overflow-x-auto mt-2">
+                                                    <table class="w-full text-sm">
+                                                        <thead>
+                                                            <tr class="border-b border-border text-left text-muted-foreground">
+                                                                <th class="py-1 pr-3">Value</th>
+                                                                <th class="py-1 pr-3">Count</th>
+                                                                <th class="py-1 pr-3">%</th>
+                                                                <th class="py-1">Cumulative %</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template x-for="row in column.frequency_table" :key="row.value">
+                                                                <tr class="border-b border-border">
+                                                                    <td class="py-1 pr-3" x-text="row.value"></td>
+                                                                    <td class="py-1 pr-3" x-text="row.count"></td>
+                                                                    <td class="py-1 pr-3" x-text="row.percent"></td>
+                                                                    <td class="py-1" x-text="row.cumulative_percent"></td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </details>
                             </template>
                         </div>
                     </template>

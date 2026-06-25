@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.api.v1.analysis import router as analysis_router
 from app.api.v1.graphs import router as graphs_router
+from app.api.v1.profile import router as profile_router
 from app.core.config import settings
 
 
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
 
     application.include_router(analysis_router)
     application.include_router(graphs_router)
+    application.include_router(profile_router)
 
     return application
 
